@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-sectorlisp is a 512-byte implementation of LISP that bootstraps John McCarthy's meta-circular evaluator on bare metal. The project has three main components:
+sectorlisp is a 512-byte implementation of LISP that bootstraps John McCarthy's meta-circular evaluator on bare metal. The project has four main components:
 
 1. **lisp.lisp** - Pure LISP meta-circular evaluator written as a single expression using only essential functions (CONS, CAR, CDR, QUOTE, ATOM, EQ, LAMBDA, COND)
-2. **lisp.c** - Portable C reference implementation with readline interface for POSIX systems
-3. **sectorlisp.S** - 512-byte i8086 assembly implementation that boots from BIOS as a master boot record
+2. **lisp.c** - Portable C reference implementation with readline interface for POSIX systems (K&R style)
+3. **lisp_modern.c** - Modern C99 version with conventional programming practices (same behavior as lisp.c)
+4. **sectorlisp.S** - 512-byte i8086 assembly implementation that boots from BIOS as a master boot record
 
 ## Building
 
@@ -16,25 +17,35 @@ sectorlisp is a 512-byte implementation of LISP that bootstraps John McCarthy's 
 # Build all targets (C REPL + bootable binary)
 make
 
-# Build just the C REPL
+# Build just the original C REPL
 make lisp
+
+# Build the modern C99 version with debug symbols
+make lisp_modern
 
 # Clean build artifacts
 make clean
 ```
 
 After building, you get:
-- `lisp` - Interactive C REPL executable
+- `lisp` - Interactive C REPL executable (original K&R style)
+- `lisp_modern` - Interactive C REPL executable (modern C99 with debug symbols)
 - `sectorlisp.bin` - Bootable master boot record (512 bytes)
 - `sectorlisp.bin.dbg` - Debug version with symbols
 
 ## Running
 
 ```sh
-# Run the C implementation
+# Run the original C implementation
 ./lisp
 
-# Run in Blinkenlights emulator (recommended)
+# Run the modern C99 implementation (identical behavior)
+./lisp_modern
+
+# Debug with GDB (see GDB_TUI_CHEATSHEET.md for TUI mode)
+gdb -tui ./lisp_modern
+
+# Run in Blinkenlights emulator (recommended for sectorlisp.bin)
 curl --compressed https://justine.lol/blinkenlights/blinkenlights-latest.com >blinkenlights.com
 chmod +x blinkenlights.com
 ./blinkenlights.com -rt sectorlisp.bin
@@ -83,13 +94,55 @@ The assembly version is extremely size-constrained:
 - Builtin symbols must be in specific order (ATOM last, EQ second-last, CONS third-last)
 - `.partition` flag (line 42) controls whether partition table is included
 
+### Modern C Implementation (lisp_modern.c)
+
+A modernized version of lisp.c with identical behavior but conventional C99 programming practices:
+- **Explicit function signatures**: All functions have proper prototypes with typed parameters
+- **Better naming**: `get_char()` vs `GetChar()`, `heap_ptr` vs `cx`, `symbol_table` vs `M` macro
+- **Type definitions**: `lisp_object_t` typedef, `IS_CONS()` and `IS_ATOM()` macros
+- **Documentation**: Extensive comments explaining memory layout, algorithms, and data structures
+- **Named constants**: `SYMBOL_CAR`, `SYMBOL_CONS`, etc. instead of magic numbers
+- **Debug symbols**: Compiled with `-g` flag for GDB debugging
+- **Modern C standards**: C99 features including `int32_t`, `size_t`, `bool`, `<wchar.h>`
+
+Key architectural improvements for readability:
+- Grouped functions by category (I/O, parsing, primitives, evaluator)
+- Static functions for internal implementation details
+- Comprehensive header comments on complex algorithms
+- Same memory layout and semantics as lisp.c
+
 ### LISP Evaluator (lisp.lisp)
 
 Pure LISP implementation with six bound functions (ASSOC, EVCON, PAIRLIS, EVLIS, APPLY, EVAL) that implement a complete meta-circular evaluator. This is the canonical implementation - both C and assembly implementations exist to bootstrap this code.
 
+## Debugging
+
+**GDB_TUI_CHEATSHEET.md** provides a comprehensive guide for debugging lisp_modern with GDB:
+- TUI (Text User Interface) mode for visual debugging
+- Switching between source and assembly views
+- Setting breakpoints and stepping through code
+- Examining LISP objects and memory
+- Example debugging sessions
+
+Quick start:
+```sh
+gdb -tui ./lisp_modern
+(gdb) break eval
+(gdb) run
+(gdb) layout split    # View source and assembly
+```
+
+Key TUI shortcuts:
+- `Ctrl-x a` - Toggle TUI mode
+- `layout src` - Source code view
+- `layout asm` - Assembly view
+- `layout split` - Both source and assembly
+- `Ctrl-x 2` - Toggle between layouts
+
 ## Build Configuration
 
-- Compiler flags: `-std=gnu89 -w -O`
+- **lisp.c** compiler flags: `-std=gnu89 -w -O`
+- **lisp_modern.c** compiler flags: `-std=c99 -g -Wall -Wextra -O2`
 - Assembler: gnu89 standard is required for proper compilation
 - Linker script: `sectorlisp.lds` creates flat binary starting at address 0
 - Object copy: `sectorlisp.bin` created by stripping symbols from `sectorlisp.bin.dbg`
