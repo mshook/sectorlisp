@@ -480,6 +480,12 @@ static lisp_object_t *evcon(lisp_object_t *clauses, lisp_object_t *env) {
 
 /* Apply: apply function to arguments */
 static lisp_object_t *apply(lisp_object_t *fn, lisp_object_t *args, lisp_object_t *env) {
+  /* NIL cannot be applied */
+  if (fn->type == TYPE_NIL) {
+    fprintf(stderr, "Cannot apply NIL\n");
+    return nil_obj;
+  }
+
   /* Lambda: (LAMBDA params body) */
   if (fn->type == TYPE_CONS && car(fn)->type == TYPE_ATOM &&
       strcmp(car(fn)->data.symbol, "LAMBDA") == 0) {
