@@ -138,11 +138,41 @@ Key benefits for GDB:
 
 See **lisp_gdb_cheatsheet.md** for GDB commands specific to lisp_gdb's data structures.
 
+**Known Issues & Fixes:**
+- Fixed infinite recursion in `apply()` when function evaluates to NIL (commit 4ab5fbd)
+  - Bug: Undefined symbols in environment returned NIL, causing `apply(NIL, ...)` → `apply(eval(NIL), ...)` → infinite loop
+  - Fix: Added explicit TYPE_NIL check at start of apply() to return NIL gracefully
+- Garbage collection currently disabled due to pointer relocation issues
+  - Heap size (50000 objects) is sufficient for current test cases
+  - Mark-and-sweep infrastructure present but commented out
+
 ### LISP Evaluator (lisp.lisp)
 
 Pure LISP implementation with six bound functions (ASSOC, EVCON, PAIRLIS, EVLIS, APPLY, EVAL) that implement a complete meta-circular evaluator. This is the canonical implementation - both C and assembly implementations exist to bootstrap this code.
 
 The file **metacircular.lisp** contains just the metacircular evaluator extracted from lisp.lisp for easier testing and experimentation.
+
+## Example LISP Programs
+
+The repository includes several example programs demonstrating pure LISP programming:
+
+- **firstatom.lisp** - Find first atom in a nested list structure
+  - Input: `((A) B C)` → Output: `A`
+  - Demonstrates recursive function binding through closures
+  - Pattern: `((LAMBDA (FF X) (FF X)) (QUOTE (LAMBDA ...)) (QUOTE data))`
+
+- **flatten.lisp** - Flatten nested list structure completely
+  - Input: `((A) B C)` → Output: `(A B C)`
+  - Input: `((TO BE) OR ((NOT) TO BE))` → Output: `(TO BE OR NOT TO BE)`
+  - Defines APPEND helper inline to concatenate lists
+  - Recursively processes both atoms and sublists
+
+- **metacircular.lisp** - Pure LISP metacircular evaluator
+  - Extracted from lisp.lisp for easier testing
+  - Evaluates: `((LAMBDA (FF X) (FF X)) (QUOTE (LAMBDA ...)) (QUOTE ((A) B C)))`
+  - Returns: `A`
+
+All examples follow the pattern of binding functions in the environment and then calling them, similar to firstatom.lisp.
 
 ## Debugging
 
