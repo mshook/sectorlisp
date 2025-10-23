@@ -78,6 +78,14 @@ Tests require qemu, cc, wc, and nc. For best results, resize terminal to 80x25.
 
 ## Architecture
 
+**See ARCHITECTURE_ANALYSIS.md for a comprehensive comparison of sectorlisp.S vs lisp.c**, including:
+- Sign-based type system (negative=cons, positive=atom)
+- Memory layout strategies
+- String interning algorithms
+- ABC garbage collection pattern
+- Size optimization techniques
+- Design decisions and tradeoffs
+
 ### C Implementation (lisp.c)
 
 The C implementation is a minimal LISP interpreter with:
