@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-sectorlisp is a 512-byte implementation of LISP that bootstraps John McCarthy's meta-circular evaluator on bare metal. The project has five main components:
+sectorlisp is a 512-byte implementation of LISP that bootstraps John McCarthy's meta-circular evaluator on bare metal. The project has six main components:
 
 1. **lisp.lisp** - Pure LISP meta-circular evaluator written as a single expression using only essential functions (CONS, CAR, CDR, QUOTE, ATOM, EQ, LAMBDA, COND)
 2. **lisp.c** - Portable C reference implementation with readline interface for POSIX systems (K&R style)
 3. **lisp_modern.c** - Modern C99 version with conventional programming practices (same behavior as lisp.c)
 4. **lisp_gdb.c** - GDB-friendly version with explicit data structures (tagged unions, real pointers) for easier debugging
-5. **sectorlisp.S** - 512-byte i8086 assembly implementation that boots from BIOS as a master boot record
+5. **lisp_gdb_trace.c** - GDB-friendly version with built-in EVAL/APPLY tracing for understanding evaluation flow
+6. **sectorlisp.S** - 512-byte i8086 assembly implementation that boots from BIOS as a master boot record
 
 ## Building
 
@@ -27,6 +28,9 @@ make lisp_modern
 # Build the GDB-friendly version (manual build)
 gcc -std=c99 -g -Wall -Wextra -O0 -o lisp_gdb lisp_gdb.c bestline.c -lm
 
+# Build the tracing version (manual build)
+gcc -std=c99 -g -Wall -Wextra -O0 -o lisp_gdb_trace lisp_gdb_trace.c bestline.c -lm
+
 # Clean build artifacts
 make clean
 ```
@@ -35,6 +39,7 @@ After building, you get:
 - `lisp` - Interactive C REPL executable (original K&R style)
 - `lisp_modern` - Interactive C REPL executable (modern C99 with debug symbols)
 - `lisp_gdb` - GDB-friendly REPL with explicit data structures for debugging
+- `lisp_gdb_trace` - GDB-friendly REPL with built-in EVAL/APPLY tracing
 - `sectorlisp.bin` - Bootable master boot record (512 bytes)
 - `sectorlisp.bin.dbg` - Debug version with symbols
 
@@ -49,6 +54,9 @@ After building, you get:
 
 # Run the GDB-friendly version (identical behavior, easier to debug)
 ./lisp_gdb
+
+# Run the tracing version (use (TRACE) to toggle eval/apply tracing)
+./lisp_gdb_trace
 
 # Debug with GDB (see GDB_TUI_CHEATSHEET.md and lisp_gdb_cheatsheet.md)
 gdb -tui ./lisp_modern
@@ -153,6 +161,38 @@ See **lisp_gdb_cheatsheet.md** for GDB commands specific to lisp_gdb's data stru
 - Garbage collection currently disabled due to pointer relocation issues
   - Heap size (50000 objects) is sufficient for current test cases
   - Mark-and-sweep infrastructure present but commented out
+
+### Tracing C Implementation (lisp_gdb_trace.c)
+
+A copy of lisp_gdb.c with built-in EVAL/APPLY tracing functionality:
+- **All features of lisp_gdb.c**: Tagged unions, real pointers, explicit heap, same debuggability
+- **TRACE builtin**: New `TRACE` function to toggle tracing on/off at runtime
+- **Depth-aware output**: Indentation shows recursion depth (2 spaces per level)
+- **Entry/exit tracing**: Shows both function entry and return values
+- **Consistent output**: Uses `print_char()` throughout to avoid buffering issues between printf/fputwc
+
+Usage:
+```lisp
+* (TRACE)           ; Turn tracing on
+T
+* (CAR '(A B C))    ; Trace output shows eval/apply flow
+EVAL: (CAR (QUOTE (A B C)))
+  EVAL: (QUOTE (A B C))
+  => (A B C)
+  APPLY: CAR TO ((A B C))
+  => A
+=> A
+A
+* (TRACE)           ; Turn tracing off
+NIL
+```
+
+Key implementation details:
+- Static `bool trace` flag controls tracing
+- Static `int trace_depth` tracks recursion depth for indentation
+- Trace output format: `EVAL: <expr>` on entry, `=> <result>` on exit
+- Apply shows: `APPLY: <fn> TO <args>`
+- All trace I/O uses `print_char()` to maintain consistent buffering with `print_object()`
 
 ### LISP Evaluator (lisp.lisp)
 
